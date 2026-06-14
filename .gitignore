@@ -1,0 +1,24 @@
+# Compiled binaries
+backend/speedtest-backend
+backend/speedtest-backend.exe
+node/speedtest-node
+node/speedtest-node.exe
+*.exe
+
+# Logs and PID files
+*.log
+logs/
+*.pid
+
+# Credentials & Database
+.env
+backend/speedtest.db
+backend/node_secret.txt
+node/node_secret.txt
+node_secret.txt
+
+# Node / Frontend build dependencies & output
+frontend/node_modules/
+backend/dist/
+frontend/dist/
+.antigravityignore

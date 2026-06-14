@@ -5,7 +5,22 @@ import TestResults from './components/TestResults';
 import AdminDashboard from './components/AdminDashboard';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 
-const BACKEND_URL = `http://${window.location.hostname}:3000`;
+const BACKEND_URL = window.location.port === '3000' || window.location.port === '5173'
+  ? `http://${window.location.hostname}:8080`
+  : `${window.location.protocol}//${window.location.hostname}${window.location.port ? `:${window.location.port}` : ''}`;
+
+const resolveNodeAddress = (address) => {
+  if (!address) return '';
+  try {
+    const url = new URL(address);
+    if (url.hostname === 'localhost' || url.hostname === '127.0.0.1') {
+      url.hostname = window.location.hostname;
+    }
+    return url.toString().replace(/\/$/, '');
+  } catch (e) {
+    return address;
+  }
+};
 
 function App() {
   const [activePage, setActivePage] = useState('home'); // 'home' | 'admin'
@@ -119,7 +134,7 @@ function App() {
     setNodeStatusMap(statuses);
 
     for (const node of nodes) {
-      const status = await checkSingleNodeStatus(node.address, node.token);
+      const status = await checkSingleNodeStatus(resolveNodeAddress(node.address), node.token);
       setNodeStatusMap(prev => ({
         ...prev,
         [node.id]: status
@@ -321,13 +336,13 @@ function App() {
     // Check node status with error handling
     let nodeStatus = 'offline';
     try {
-      nodeStatus = await checkSingleNodeStatus(selectedNode.address, token);
+      nodeStatus = await checkSingleNodeStatus(resolveNodeAddress(selectedNode.address), token);
     } catch (e) {
       console.error("Failed status check:", e);
     }
 
     if (nodeStatus !== 'online') {
-      alert(`Cannot start test: Node Server "${selectedNode.name}" at ${selectedNode.address} is currently OFFLINE or unreachable.`);
+      alert(`Cannot start test: Node Server "${selectedNode.name}" at ${resolveNodeAddress(selectedNode.address)} is currently OFFLINE or unreachable.`);
       setNodeStatusMap(prev => ({ ...prev, [selectedNode.id]: 'offline' }));
       return;
     }
@@ -347,7 +362,7 @@ function App() {
     setRunningDownload(0);
     setRunningUpload(0);
 
-    const targetNodeAddress = selectedNode.address;
+    const targetNodeAddress = resolveNodeAddress(selectedNode.address);
 
     // ==========================================
     // STEP 1: PING TEST (Exactly 5 Seconds)
@@ -819,7 +834,7 @@ function App() {
                       <div className="node-details">
                         <div className="node-details-item">
                           <span>Server IP/Address:</span>
-                          <span>{selectedNode.address}</span>
+                          <span>{resolveNodeAddress(selectedNode.address)}</span>
                         </div>
                         <div className="node-details-item">
                           <span>Country:</span>

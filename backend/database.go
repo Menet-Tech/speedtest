@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"database/sql"
 	"log"
+	"os"
 	"time"
 
 	"golang.org/x/crypto/bcrypt"
@@ -123,11 +124,16 @@ func InitDB() {
 	}
 
 	// Insert default settings
+	sitePin := "1234"
+	if envPin := os.Getenv("ADMIN_PIN"); envPin != "" {
+		sitePin = envPin
+	}
+
 	defaultSettings := map[string]string{
 		"site_name":        "Antigravity Speedtest",
 		"logo_url":         "",
 		"site_description": "Instant high-precision network speed diagnostics including Ping Under Load, Packet Loss, DNS, and Hop routing analysis.",
-		"site_pin":         "1234",
+		"site_pin":         sitePin,
 		"node_secret":      generateRandomToken(32),
 		"max_pin_attempts": "5",
 	}
@@ -147,7 +153,11 @@ func InitDB() {
 	var userCount int
 	err = db.QueryRow("SELECT COUNT(*) FROM admin_users").Scan(&userCount)
 	if err == nil && userCount == 0 {
-		hashedPass, err := hashPassword("admin")
+		adminPass := "admin"
+		if envPass := os.Getenv("ADMIN_PASSWORD"); envPass != "" {
+			adminPass = envPass
+		}
+		hashedPass, err := hashPassword(adminPass)
 		if err == nil {
 			_, err = db.Exec("INSERT INTO admin_users (username, password) VALUES (?, ?)", "admin", hashedPass)
 			if err != nil {

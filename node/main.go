@@ -12,6 +12,7 @@ import (
 	"os"
 	"os/exec"
 	"regexp"
+	"runtime"
 	"strconv"
 	"strings"
 	"sync"
@@ -275,43 +276,91 @@ func handleTraceroute(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var hops []Hop
+	var cmd *exec.Cmd
+	isLinux := runtime.GOOS == "linux"
 
-	// Attempt real execution of Windows tracert command
-	// For speed, limit max hops to 12
-	cmd := exec.Command("tracert", "-d", "-h", "12", target)
+	if isLinux {
+		if _, err := exec.LookPath("traceroute"); err == nil {
+			cmd = exec.Command("traceroute", "-n", "-m", "12", target)
+		} else {
+			cmd = exec.Command("tracepath", "-n", "-m", "12", target)
+		}
+	} else {
+		cmd = exec.Command("tracert", "-d", "-h", "12", target)
+	}
+
 	output, cmdErr := cmd.CombinedOutput()
 
 	if cmdErr == nil {
 		lines := strings.Split(string(output), "\n")
-		// Parse Windows Tracert Output
-		// Format example:
-		//  1     1 ms     1 ms     1 ms  192.168.1.1
-		//  2    10 ms     9 ms    12 ms  10.0.0.1
-		hopRegex := regexp.MustCompile(`^\s*(\d+)\s+([\d\sms\*<>]+)\s+([\d\sms\*<>]+)\s+([\d\sms\*<>]+)\s+([0-9a-fA-F\.\:]+|Request timed out\.)`)
-		for _, line := range lines {
-			line = strings.TrimSpace(line)
-			matches := hopRegex.FindStringSubmatch(line)
-			if len(matches) > 0 {
-				hopNum, _ := strconv.Atoi(matches[1])
-				lat1 := strings.TrimSpace(matches[2])
-				lat2 := strings.TrimSpace(matches[3])
-				lat3 := strings.TrimSpace(matches[4])
-				ip := strings.TrimSpace(matches[5])
+		if isLinux {
+			// Linux traceroute parsing
+			// Example line:  1  192.168.1.1  1.045 ms  1.012 ms  0.998 ms
+			// Or lost:       2  * * *
+			hopRegex := regexp.MustCompile(`^\s*(\d+)\s+([0-9a-fA-F\.\:]+|\*)\s+(.*)`)
+			latRegex := regexp.MustCompile(`(\d+\.?\d*\s*ms|\*)`)
+			for _, line := range lines {
+				line = strings.TrimSpace(line)
+				matches := hopRegex.FindStringSubmatch(line)
+				if len(matches) > 0 {
+					hopNum, _ := strconv.Atoi(matches[1])
+					ip := matches[2]
+					latString := matches[3]
 
-				host := ""
-				if ip == "Request timed out." {
-					ip = "*"
-					host = "Request Timed Out"
-				} else {
-					host = getHostName(ip)
+					latMatches := latRegex.FindAllString(latString, -1)
+					latencies := []string{"*", "*", "*"}
+					for idx, latVal := range latMatches {
+						if idx < 3 {
+							latencies[idx] = strings.TrimSpace(latVal)
+						}
+					}
+
+					host := ""
+					if ip == "*" {
+						host = "Request Timed Out"
+					} else {
+						host = getHostName(ip)
+					}
+
+					hops = append(hops, Hop{
+						HopNumber: hopNum,
+						IP:        ip,
+						Host:      host,
+						Latencies: latencies,
+					})
 				}
+			}
+		} else {
+			// Parse Windows Tracert Output
+			// Format example:
+			//  1     1 ms     1 ms     1 ms  192.168.1.1
+			//  2    10 ms     9 ms    12 ms  10.0.0.1
+			hopRegex := regexp.MustCompile(`^\s*(\d+)\s+([\d\sms\*<>]+)\s+([\d\sms\*<>]+)\s+([\d\sms\*<>]+)\s+([0-9a-fA-F\.\:]+|Request timed out\.)`)
+			for _, line := range lines {
+				line = strings.TrimSpace(line)
+				matches := hopRegex.FindStringSubmatch(line)
+				if len(matches) > 0 {
+					hopNum, _ := strconv.Atoi(matches[1])
+					lat1 := strings.TrimSpace(matches[2])
+					lat2 := strings.TrimSpace(matches[3])
+					lat3 := strings.TrimSpace(matches[4])
+					ip := strings.TrimSpace(matches[5])
 
-				hops = append(hops, Hop{
-					HopNumber: hopNum,
-					IP:        ip,
-					Host:      host,
-					Latencies: []string{lat1, lat2, lat3},
-				})
+					host := ""
+					if ip == "Request timed out." {
+						ip = "*"
+						host = "Request Timed Out"
+					} else {
+						host = getHostName(ip)
+					}
+
+					hops = append(hops, Hop{
+						HopNumber: hopNum,
+						IP:        ip,
+						Host:      host,
+						Latencies: []string{lat1, lat2, lat3},
+					})
+				}
 			}
 		}
 	}
