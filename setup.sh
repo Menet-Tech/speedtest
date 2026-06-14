@@ -79,55 +79,70 @@ cd ..
 # Create systemd service units for Speedtest components
 # ------------------------------------------------------------
 
+# ----- Create systemd services with absolute paths -----
+# Determine absolute paths for executables and project root
+PROJECT_ROOT="$(pwd)"
+SERVE_BIN="$(command -v serve)"
+NODE_BIN="$(command -v node)"
+
+if [ -z "$SERVE_BIN" ]; then
+  echo "serve binary not found, aborting service creation"
+  exit 1
+fi
+if [ -z "$NODE_BIN" ]; then
+  echo "node binary not found, aborting service creation"
+  exit 1
+fi
+
 # Frontend service (serve static files)
-cat <<'EOF' | sudo tee /etc/systemd/system/speedtest-fe.service
+cat <<EOF | sudo tee /etc/systemd/system/speedtest-fe.service
 [Unit]
 Description=Speedtest Frontend Service
 After=network.target
 
 [Service]
 Type=simple
-ExecStart=$(which serve) -s $(pwd)/frontend/dist -l 8080
+ExecStart=${SERVE_BIN} -s ${PROJECT_ROOT}/frontend/dist -l 8080
 Restart=on-failure
 User=$(whoami)
-WorkingDirectory=$(pwd)
-EnvironmentFile=$(pwd)/.env
+WorkingDirectory=${PROJECT_ROOT}
+EnvironmentFile=${PROJECT_ROOT}/.env
 
 [Install]
 WantedBy=multi-user.target
 EOF
 
 # Backend service (Go binary)
-cat <<'EOF' | sudo tee /etc/systemd/system/speedtest-be.service
+cat <<EOF | sudo tee /etc/systemd/system/speedtest-be.service
 [Unit]
 Description=Speedtest Backend Service
 After=network.target
 
 [Service]
 Type=simple
-ExecStart=$(pwd)/speedtest-backend
+ExecStart=${PROJECT_ROOT}/speedtest-backend
 Restart=on-failure
 User=$(whoami)
-WorkingDirectory=$(pwd)
-EnvironmentFile=$(pwd)/.env
+WorkingDirectory=${PROJECT_ROOT}
+EnvironmentFile=${PROJECT_ROOT}/.env
 
 [Install]
 WantedBy=multi-user.target
 EOF
 
 # Node service (if applicable)
-cat <<'EOF' | sudo tee /etc/systemd/system/speedtest-node.service
+cat <<EOF | sudo tee /etc/systemd/system/speedtest-node.service
 [Unit]
 Description=Speedtest Node Service
 After=network.target
 
 [Service]
 Type=simple
-ExecStart=$(which node) $(pwd)/node/main.js
+ExecStart=${NODE_BIN} ${PROJECT_ROOT}/node/main.js
 Restart=on-failure
 User=$(whoami)
-WorkingDirectory=$(pwd)
-EnvironmentFile=$(pwd)/.env
+WorkingDirectory=${PROJECT_ROOT}
+EnvironmentFile=${PROJECT_ROOT}/.env
 
 [Install]
 WantedBy=multi-user.target
@@ -140,5 +155,6 @@ sudo systemctl enable --now speedtest-be.service
 sudo systemctl enable --now speedtest-node.service
 
 echo "Systemd services installed and started: speedtest-fe, speedtest-be, speedtest-node"
+
 
 
