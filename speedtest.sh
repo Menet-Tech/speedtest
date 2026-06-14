@@ -1,26 +1,60 @@
 #!/usr/bin/env bash
 
-# speedtest.sh – Control wrapper for Speedtest application on Ubuntu 24.04
-# ----------------------------------------------------------------------
-# Usage: ./speedtest.sh start|stop|restart
-#   start   – Build (if needed) and launch backend, frontend and optional node service.
-#   stop    – Terminate all running processes started by this script.
-#   restart – Stop then start again.
-#
-# The script stores PIDs of the launched processes in a temporary file
-# (${PWD}/.speedtest.pids) so that they can be stopped safely.
+# speedtest.sh – Clean service controller (frontend + backend + node)
+# Ports:
+#   Frontend = 8080
+#   Backend  = 3000
+#   Node     = 8081
 
 set -euo pipefail
 
-PIDFILE="${PWD}/.speedtest.pids"
-CMD="${1:-start}"   # default to start if no argument supplied
+BASE_DIR="$(pwd)"
+PIDFILE="$BASE_DIR/.speedtest.pids"
+
+FRONTEND_PORT=8080
+BACKEND_PORT=3000
+NODE_PORT=8081
+
+CMD="${1:-start}"
 
 # ------------------------------------------------------------
-# Helper: export credentials from .env (if present)
+# Load .env if exists
 # ------------------------------------------------------------
 if [ -f .env ]; then
   export $(grep -v '^#' .env | xargs)
 fi
+
+# ------------------------------------------------------------
+# Kill process by port (safety)
+# ------------------------------------------------------------
+kill_port() {
+  local port=$1
+  lsof -ti:$port | xargs -r kill -9 2>/dev/null || true
+}
+
+# ------------------------------------------------------------
+# Stop services
+# ------------------------------------------------------------
+stop_services() {
+  echo "Stopping Speedtest services..."
+
+  if [ -f "$PIDFILE" ]; then
+    source "$PIDFILE"
+
+    [ -n "${BACKEND_PID:-}" ] && kill -9 "$BACKEND_PID" 2>/dev/null || true
+    [ -n "${FRONTEND_PID:-}" ] && kill -9 "$FRONTEND_PID" 2>/dev/null || true
+    [ -n "${NODE_PID:-}" ] && kill -9 "$NODE_PID" 2>/dev/null || true
+
+    rm -f "$PIDFILE"
+  fi
+
+  # extra safety kill by port
+  kill_port $BACKEND_PORT
+  kill_port $FRONTEND_PORT
+  kill_port $NODE_PORT
+
+  echo "All services stopped."
+}
 
 # ------------------------------------------------------------
 # Start services
@@ -28,34 +62,48 @@ fi
 start_services() {
   echo "Starting Speedtest services..."
 
-  # Backend (Go binary)
-  ./speedtest-backend &
+  # safety kill old ports
+  kill_port $BACKEND_PORT
+  kill_port $FRONTEND_PORT
+  kill_port $NODE_PORT
+
+  # ---------------- Backend ----------------
+  echo "Starting backend on port $BACKEND_PORT..."
+  BACKEND_PORT=$BACKEND_PORT ./speedtest-backend &
   BACKEND_PID=$!
   echo "Backend PID=$BACKEND_PID"
 
-  # Frontend (static files via serve)
-  serve -s frontend/dist -l 8080 &
+  # ---------------- Frontend ----------------
+  echo "Starting frontend on port $FRONTEND_PORT..."
+  serve -s frontend/dist -l $FRONTEND_PORT &
   FRONTEND_PID=$!
   echo "Frontend PID=$FRONTEND_PID"
 
-  # Optional Node service
+  # ---------------- Node ----------------
   if [ -f node/main.js ]; then
-    node node/main.js &
+    echo "Starting node on port $NODE_PORT..."
+    PORT=$NODE_PORT node node/main.js &
     NODE_PID=$!
     echo "Node PID=$NODE_PID"
   else
     NODE_PID=""
   fi
 
-  # Save PIDs for later stop/restart
-  echo "BACKEND_PID=$BACKEND_PID" > "$PIDFILE"
-  echo "FRONTEND_PID=$FRONTEND_PID" >> "$PIDFILE"
-  echo "NODE_PID=$NODE_PID" >> "$PIDFILE"
+  # save PID
+  cat > "$PIDFILE" <<EOF
+BACKEND_PID=$BACKEND_PID
+FRONTEND_PID=$FRONTEND_PID
+NODE_PID=$NODE_PID
+EOF
 
-  # Graceful shutdown on Ctrl+C or SIGTERM
+  echo ""
+  echo "Services started:"
+  echo "Frontend: http://localhost:$FRONTEND_PORT"
+  echo "Backend : http://localhost:$BACKEND_PORT"
+  echo "Node    : http://localhost:$NODE_PORT"
+
   trap "stop_services; exit" SIGINT SIGTERM
 
-  # Wait for processes – this keeps the script alive
   wait $BACKEND_PID
   wait $FRONTEND_PID
   if [ -n "$NODE_PID" ]; then
@@ -64,25 +112,7 @@ start_services() {
 }
 
 # ------------------------------------------------------------
-# Stop services
-# ------------------------------------------------------------
-stop_services() {
-  if [ ! -f "$PIDFILE" ]; then
-    echo "No PID file found – nothing to stop."
-    return
-  fi
-  echo "Stopping Speedtest services..."
-  source "$PIDFILE"
-  # Kill processes if they are still running
-  [ -n "${BACKEND_PID:-}" ] && kill $BACKEND_PID 2>/dev/null || true
-  [ -n "${FRONTEND_PID:-}" ] && kill $FRONTEND_PID 2>/dev/null || true
-  [ -n "${NODE_PID:-}" ] && kill $NODE_PID 2>/dev/null || true
-  rm -f "$PIDFILE"
-  echo "All services stopped."
-}
-
-# ------------------------------------------------------------
-# Main command dispatch
+# Command router
 # ------------------------------------------------------------
 case "$CMD" in
   start)
@@ -96,7 +126,6 @@ case "$CMD" in
     start_services
     ;;
   *)
-    echo "Invalid command: $CMD"
     echo "Usage: $0 {start|stop|restart}"
     exit 1
     ;;
