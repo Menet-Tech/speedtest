@@ -157,6 +157,14 @@ func InitDB() {
 		}
 	}
 
+	// Overwrite node_secret if NODE_SECRET is explicitly set in env
+	if envSecret := os.Getenv("NODE_SECRET"); envSecret != "" {
+		_, err = db.Exec("INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)", "node_secret", envSecret)
+		if err != nil {
+			log.Printf("Failed to update node_secret from env: %v", err)
+		}
+	}
+
 	// Insert default admin user if none exist
 	var userCount int
 	err = db.QueryRow("SELECT COUNT(*) FROM admin_users").Scan(&userCount)

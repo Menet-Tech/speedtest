@@ -2,7 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { Settings, Server, Plus, Trash2, Save, Sparkles, TrendingUp, ArrowDownCircle, ArrowUpCircle, Activity, Lock, Image, Shield, RotateCcw, MapPin, Wifi } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 
-const BACKEND_URL = 'http://localhost:8080';
+const BACKEND_URL = window.location.port === '3000' || window.location.port === '5173'
+  ? `http://${window.location.hostname}:8080`
+  : `${window.location.protocol}//${window.location.hostname}${window.location.port ? `:${window.location.port}` : ''}`;
 
 const AdminDashboard = ({
   config,
