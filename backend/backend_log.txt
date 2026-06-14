@@ -1,0 +1,2 @@
+2026/06/15 02:37:40 Main Backend running on http://localhost:8080
+2026/06/15 02:37:40 Server failed to start: listen tcp :8080: bind: Only one usage of each socket address (protocol/network address/port) is normally permitted.
