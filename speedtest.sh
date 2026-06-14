@@ -83,12 +83,14 @@ start_services() {
 
   echo "Starting Speedtest services..."
 
-  # clean old processes first
-  stop_services
+  # Ensure no existing services occupy the ports
+  kill_port $BACKEND_PORT
+  kill_port $FRONTEND_PORT
+  kill_port $NODE_PORT
 
   # ---------------- BACKEND ----------------
   echo "Starting backend on port $BACKEND_PORT..."
-  BACKEND_PORT=$BACKEND_PORT ./speedtest-backend &
+  PORT=$BACKEND_PORT ./speedtest-backend &
   BACKEND_PID=$!
 
   # ---------------- FRONTEND ----------------

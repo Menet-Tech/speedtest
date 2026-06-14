@@ -316,10 +316,14 @@ func main() {
 	// Wrap handler with CORS middleware
 	handlerWithCORS := corsMiddleware(mux)
 
-	port := "8080"
-	if envPort := os.Getenv("PORT"); envPort != "" {
-		port = envPort
-	}
+	port := os.Getenv("BACKEND_PORT")
+if port == "" {
+    if envPort := os.Getenv("PORT"); envPort != "" {
+        port = envPort
+    } else {
+        port = "8080"
+    }
+}
 
 	log.Printf("Main Backend running on http://localhost:%s", port)
 	if err := http.ListenAndServe(":"+port, handlerWithCORS); err != nil {
