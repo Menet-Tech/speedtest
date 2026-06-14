@@ -73,86 +73,32 @@ GOOS=linux GOARCH=amd64 go build -o ../speedtest-backend
 cd ..
 
 # ----- Run application ---------------------------------------------------
-# The script now creates systemd services instead of running processes directly.
+# Export credentials from .env
+export $(grep -v '^#' .env | xargs)
 
-# ------------------------------------------------------------
-# Create systemd service units for Speedtest components
-# ------------------------------------------------------------
+# Start backend
+./speedtest-backend &
+BACKEND_PID=$!
 
-# ----- Create systemd services with absolute paths -----
-# Determine absolute paths for executables and project root
-PROJECT_ROOT="$(pwd)"
-SERVE_BIN="$(command -v serve)"
-NODE_BIN="$(command -v node)"
-SERVICE_USER="$(whoami)"
+echo "Backend started (PID $BACKEND_PID)"
 
-if [ -z "$SERVE_BIN" ]; then
-  echo "serve binary not found, aborting service creation"
-  exit 1
+# Serve frontend static files
+serve -s frontend/dist -l 8080 &
+FRONTEND_PID=$!
+
+echo "Frontend served at http://localhost:8080 (PID $FRONTEND_PID)"
+
+# Start node service if present
+if [ -f node/main.js ]; then
+  node node/main.js &
+  NODE_PID=$!
+  echo "Node service started (PID $NODE_PID)"
 fi
-if [ -z "$NODE_BIN" ]; then
-  echo "node binary not found, aborting service creation"
-  exit 1
+
+# Wait for processes; handle Ctrl+C
+trap "kill $BACKEND_PID $FRONTEND_PID ${NODE_PID:-} 2>/dev/null; exit" SIGINT SIGTERM
+wait $BACKEND_PID
+wait $FRONTEND_PID
+if [ -n "${NODE_PID:-}" ]; then
+  wait $NODE_PID
 fi
-
-# Frontend service (serve static files)
-cat <<EOF | sudo tee /etc/systemd/system/speedtest-fe.service
-[Unit]
-Description=Speedtest Frontend Service
-After=network.target
-
-[Service]
-Type=simple
-ExecStart=${SERVE_BIN} -s ${PROJECT_ROOT}/frontend/dist -l 8080
-Restart=on-failure
-User=${SERVICE_USER}
-WorkingDirectory=${PROJECT_ROOT}
-EnvironmentFile=${PROJECT_ROOT}/.env
-
-[Install]
-WantedBy=multi-user.target
-EOF
-
-# Backend service (Go binary)
-cat <<EOF | sudo tee /etc/systemd/system/speedtest-be.service
-[Unit]
-Description=Speedtest Backend Service
-After=network.target
-
-[Service]
-Type=simple
-ExecStart=${PROJECT_ROOT}/speedtest-backend
-Restart=on-failure
-User=${SERVICE_USER}
-WorkingDirectory=${PROJECT_ROOT}
-EnvironmentFile=${PROJECT_ROOT}/.env
-
-[Install]
-WantedBy=multi-user.target
-EOF
-
-# Node service (if applicable)
-cat <<EOF | sudo tee /etc/systemd/system/speedtest-node.service
-[Unit]
-Description=Speedtest Node Service
-After=network.target
-
-[Service]
-Type=simple
-ExecStart=${NODE_BIN} ${PROJECT_ROOT}/node/main.js
-Restart=on-failure
-User=${SERVICE_USER}
-WorkingDirectory=${PROJECT_ROOT}
-EnvironmentFile=${PROJECT_ROOT}/.env
-
-[Install]
-WantedBy=multi-user.target
-EOF
-
-# Reload systemd and enable/start services
-sudo systemctl daemon-reload
-sudo systemctl enable --now speedtest-fe.service
-sudo systemctl enable --now speedtest-be.service
-sudo systemctl enable --now speedtest-node.service
-
-echo "Systemd services installed and started: speedtest-fe, speedtest-be, speedtest-node"
