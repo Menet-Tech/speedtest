@@ -3,7 +3,40 @@
 
 set -euo pipefail
 
-# … (helper functions, credential collection, .env creation, deps install) …
+# ----- Helper functions -------------------------------------------------
+function ask_secret() {
+  local prompt="$1"
+  read -rsp "$prompt: " value
+  echo "$value"
+  echo    # newline after hidden input
+}
+
+function ask_input() {
+  local prompt="$1"
+  read -p "$prompt: " value
+  echo "$value"
+}
+
+# ----- Collect admin credentials ----------------------------------------
+ADMIN_PASSWORD=$(ask_secret "Enter admin password")
+ADMIN_PIN=$(ask_input "Enter 4‑digit admin PIN")
+
+# ----- Create .env file -------------------------------------------------
+cat > .env <<EOF
+ADMIN_PASSWORD=$ADMIN_PASSWORD
+ADMIN_PIN=$ADMIN_PIN
+EOF
+
+echo ".env file created with provided credentials."
+
+# ----- Ensure required tools are installed --------------------------------
+# Node.js & npm (assume already installed on Ubuntu, otherwise instruct user)
+# Go (assume already installed)
+# serve (static file server for the built frontend)
+if ! command -v serve >/dev/null 2>&1; then
+  echo "Installing 'serve' globally via npm..."
+  npm install -g serve
+fi
 
 # ----- Frontend setup ----------------------------------------------------
 cd frontend
