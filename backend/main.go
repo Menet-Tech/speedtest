@@ -325,8 +325,13 @@ if port == "" {
     }
 }
 
-	log.Printf("Main Backend running on http://localhost:%s", port)
-	if err := http.ListenAndServe(":"+port, handlerWithCORS); err != nil {
+	host := os.Getenv("SERVER_IP")
+	if host == "" {
+		host = "localhost"
+	}
+	log.Printf("Main Backend running on http://%s:%s", host, port)
+	addr := ":" + port
+	if err := http.ListenAndServe(addr, handlerWithCORS); err != nil {
 		log.Fatalf("Server failed to start: %v", err)
 	}
 }

@@ -24,6 +24,11 @@ start_services() {
 
     sleep 1
 
+    # Determine host IP
+    HOST_IP=$(hostname -I | awk '{print $1}')
+    export SERVER_IP=$HOST_IP
+    
+    # Build backend
     echo "[BUILD] Backend..."
     cd "$BACKEND_DIR" || exit 1
     go build -o speedtest-backend .
@@ -31,23 +36,25 @@ start_services() {
         echo "❌ Backend build FAILED"
         exit 1
     fi
-
+    
+    # Build Node (if any)
     echo "[BUILD] Node..."
     cd "$NODE_DIR" || exit 1
     go build -o speedtest-node .
-
     if [ $? -ne 0 ]; then
         echo "⚠️ Node build FAILED → fallback go run"
         nohup go run main.go > node.log 2>&1 &
     else
         nohup ./speedtest-node > node.log 2>&1 &
     fi
-
+    
+    # Start backend with explicit port env var
     echo "[START] Backend..."
-    nohup "$BACKEND_BIN" > backend.log 2>&1 &
-
-    echo "[START] Frontend..."
-
+    cd "$BACKEND_DIR" || exit 1
+    BACKEND_PORT=$BACKEND_PORT BACKEND_PORT=$BACKEND_PORT $BACKEND_BIN > "$BACKEND_DIR/backend.log" 2>&1 &
+    BACKEND_PID=$!
+    echo "Backend started at http://$HOST_IP:$BACKEND_PORT (PID $BACKEND_PID)"
+    
     cd "$FRONTEND_DIR" || exit 1
 
     if [ -f package.json ]; then
@@ -67,8 +74,8 @@ start_services() {
     sleep 3
 
     echo "==================================================="
-    echo "Backend : http://SERVER-IP:$BACKEND_PORT"
-    echo "Frontend: http://SERVER-IP:$FRONTEND_PORT"
+    echo "Backend : http://$HOST_IP:$BACKEND_PORT"
+    echo "Frontend: http://$HOST_IP:$FRONTEND_PORT"
     echo "==================================================="
 }
 
