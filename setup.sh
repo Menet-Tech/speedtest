@@ -59,7 +59,7 @@ BACKEND_PID=$!
 echo "Backend started (PID $BACKEND_PID) at http://$SERVER_IP:$BACKEND_PORT"
 
 # Serve frontend static files
-serve -s frontend/dist -l $FRONTEND_PORT --host 0.0.0.0 &
+serve -s frontend/dist -l $FRONTEND_PORT &
 FRONTEND_PID=$!
 echo "Frontend served at http://$SERVER_IP:$FRONTEND_PORT (PID $FRONTEND_PID)"
 
