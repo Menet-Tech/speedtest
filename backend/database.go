@@ -149,6 +149,14 @@ func InitDB() {
 		}
 	}
 
+	// Overwrite site_pin if ADMIN_PIN is explicitly set in env
+	if envPin := os.Getenv("ADMIN_PIN"); envPin != "" {
+		_, err = db.Exec("INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)", "site_pin", envPin)
+		if err != nil {
+			log.Printf("Failed to update site_pin from env: %v", err)
+		}
+	}
+
 	// Insert default admin user if none exist
 	var userCount int
 	err = db.QueryRow("SELECT COUNT(*) FROM admin_users").Scan(&userCount)
@@ -165,6 +173,15 @@ func InitDB() {
 			}
 		} else {
 			log.Printf("Failed to hash default admin user password: %v", err)
+		}
+	} else if envPass := os.Getenv("ADMIN_PASSWORD"); envPass != "" {
+		// Overwrite password for 'admin' user if ADMIN_PASSWORD is set in env
+		hashedPass, err := hashPassword(envPass)
+		if err == nil {
+			_, err = db.Exec("UPDATE admin_users SET password = ? WHERE username = ?", hashedPass, "admin")
+			if err != nil {
+				log.Printf("Failed to update admin password from env: %v", err)
+			}
 		}
 	}
 
