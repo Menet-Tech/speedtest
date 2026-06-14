@@ -10,11 +10,19 @@ NODE_BIN="$NODE_DIR/speedtest-node"
 BACKEND_PORT=8080
 FRONTEND_PORT=3000
 
+echo "==================================================="
+echo "   Speedtest App Orchestrator (Ubuntu 24.04)"
+echo "==================================================="
+
 start_services() {
+
     echo "[STOP] Killing old services..."
     pkill -f speedtest-backend 2>/dev/null || true
     pkill -f speedtest-node 2>/dev/null || true
+    pkill -f "vite" 2>/dev/null || true
     pkill -f "npm run dev" 2>/dev/null || true
+
+    sleep 1
 
     echo "[BUILD] Backend..."
     cd "$BACKEND_DIR" || exit 1
@@ -27,6 +35,7 @@ start_services() {
     echo "[BUILD] Node..."
     cd "$NODE_DIR" || exit 1
     go build -o speedtest-node .
+
     if [ $? -ne 0 ]; then
         echo "⚠️ Node build FAILED → fallback go run"
         nohup go run main.go > node.log 2>&1 &
@@ -34,35 +43,44 @@ start_services() {
         nohup ./speedtest-node > node.log 2>&1 &
     fi
 
-    echo "[START] Frontend..."
-    cd "$FRONTEND_DIR" || exit 1
-
-    if [ -f package.json ]; then
-        nohup npm install > frontend_install.log 2>&1 &
-        nohup npm run dev > frontend.log 2>&1 &
-        echo "Frontend running on http://localhost:$FRONTEND_PORT"
-    else
-        echo "⚠️ Frontend not found (no package.json)"
-    fi
-
     echo "[START] Backend..."
     nohup "$BACKEND_BIN" > backend.log 2>&1 &
 
-    echo "Waiting..."
+    echo "[START] Frontend..."
+
+    cd "$FRONTEND_DIR" || exit 1
+
+    if [ -f package.json ]; then
+
+        # install dependency (sync, jangan background)
+        npm install
+
+        # jalankan frontend agar bisa diakses dari luar
+        nohup npm run dev -- --host 0.0.0.0 --port $FRONTEND_PORT > frontend.log 2>&1 &
+
+        echo "Frontend running on: http://SERVER-IP:$FRONTEND_PORT"
+
+    else
+        echo "⚠️ Frontend not found"
+    fi
+
     sleep 3
 
-    echo "Open browser..."
-    xdg-open "http://localhost:$FRONTEND_PORT" 2>/dev/null || true
-
-    echo "✅ DONE"
+    echo "==================================================="
+    echo "Backend : http://SERVER-IP:$BACKEND_PORT"
+    echo "Frontend: http://SERVER-IP:$FRONTEND_PORT"
+    echo "==================================================="
 }
 
 stop_services() {
-    echo "[STOP] services..."
+    echo "[STOP] Stopping services..."
+
     pkill -f speedtest-backend 2>/dev/null || true
     pkill -f speedtest-node 2>/dev/null || true
+    pkill -f vite 2>/dev/null || true
     pkill -f "npm run dev" 2>/dev/null || true
-    echo "Stopped"
+
+    echo "Stopped."
 }
 
 restart_services() {

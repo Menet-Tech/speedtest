@@ -7,7 +7,7 @@ const TestResults = ({ results, dnsResults, tracerouteResults }) => {
   const idlePing = results.ping || 0;
   const dlPing = results.loaded_ping_dl || 0;
   const ulPing = results.loaded_ping_ul || 0;
-  
+
   const dlIncrease = Math.max(0, dlPing - idlePing);
   const ulIncrease = Math.max(0, ulPing - idlePing);
   const totalIncrease = dlIncrease + ulIncrease;
@@ -55,7 +55,7 @@ const TestResults = ({ results, dnsResults, tracerouteResults }) => {
         let gameVal = 100 - (ping * 0.5) - (jitter * 2.0) - (loss * 15.0) - (totalIncrease * 0.3);
         gameVal = Math.max(0, Math.min(100, gameVal));
         score = Math.round(gameVal);
-        
+
         if (score > 85) label = 'Excellent';
         else if (score > 70) label = 'Good';
         else if (score > 50) label = 'Fair';
@@ -187,8 +187,8 @@ const TestResults = ({ results, dnsResults, tracerouteResults }) => {
               <span>{results.ping?.toFixed(1)} ms</span>
             </div>
             <div className="loaded-bar-bg">
-              <div 
-                className="loaded-bar-fill" 
+              <div
+                className="loaded-bar-fill"
                 style={{ width: '100%', background: 'var(--color-ping)' }}
               />
             </div>
@@ -200,11 +200,11 @@ const TestResults = ({ results, dnsResults, tracerouteResults }) => {
               <span>{results.loaded_ping_dl?.toFixed(1)} ms (+{dlIncrease.toFixed(1)})</span>
             </div>
             <div className="loaded-bar-bg">
-              <div 
-                className="loaded-bar-fill" 
-                style={{ 
-                  width: `${Math.min(100, (dlPing / Math.max(1, dlPing + 20)) * 100)}%`, 
-                  background: 'var(--color-download)' 
+              <div
+                className="loaded-bar-fill"
+                style={{
+                  width: `${Math.min(100, (dlPing / Math.max(1, dlPing + 20)) * 100)}%`,
+                  background: 'var(--color-download)'
                 }}
               />
             </div>
@@ -216,11 +216,11 @@ const TestResults = ({ results, dnsResults, tracerouteResults }) => {
               <span>{results.loaded_ping_ul?.toFixed(1)} ms (+{ulIncrease.toFixed(1)})</span>
             </div>
             <div className="loaded-bar-bg">
-              <div 
-                className="loaded-bar-fill" 
-                style={{ 
-                  width: `${Math.min(100, (ulPing / Math.max(1, ulPing + 20)) * 100)}%`, 
-                  background: 'var(--color-upload)' 
+              <div
+                className="loaded-bar-fill"
+                style={{
+                  width: `${Math.min(100, (ulPing / Math.max(1, ulPing + 20)) * 100)}%`,
+                  background: 'var(--color-upload)'
                 }}
               />
             </div>

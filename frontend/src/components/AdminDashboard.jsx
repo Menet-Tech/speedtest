@@ -485,7 +485,7 @@ const AdminDashboard = ({
                   className="admin-input"
                   value={nodeAddress}
                   onChange={(e) => setNodeAddress(e.target.value)}
-                  placeholder="http://99.99.99.189:8081"
+                  placeholder="http://99.99.99.191:8081"
                   required
                 />
               </div>
