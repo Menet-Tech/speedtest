@@ -50,7 +50,7 @@ echo "Checking required system dependencies..."
 ensure_installed "go" "golang-go"
 ensure_installed "node" "nodejs"
 ensure_installed "npm" "npm"
-ensure_installed "traceroute" "traceroute"
+#ensure_installed "traceroute" "traceroute"
 ensure_installed "git" "git"
 
 # ----- Collect admin credentials & configuration -----------------------

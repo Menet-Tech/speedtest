@@ -9,6 +9,7 @@ node/speedtest-node.exe
 *.log
 logs/
 *.pid
+*.db
 
 # Credentials & Database
 .env
