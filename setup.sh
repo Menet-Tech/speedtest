@@ -84,6 +84,7 @@ cd ..
 PROJECT_ROOT="$(pwd)"
 SERVE_BIN="$(command -v serve)"
 NODE_BIN="$(command -v node)"
+SERVICE_USER="$(whoami)"
 
 if [ -z "$SERVE_BIN" ]; then
   echo "serve binary not found, aborting service creation"
@@ -104,7 +105,7 @@ After=network.target
 Type=simple
 ExecStart=${SERVE_BIN} -s ${PROJECT_ROOT}/frontend/dist -l 8080
 Restart=on-failure
-User=$(whoami)
+User=${SERVICE_USER}
 WorkingDirectory=${PROJECT_ROOT}
 EnvironmentFile=${PROJECT_ROOT}/.env
 
@@ -122,7 +123,7 @@ After=network.target
 Type=simple
 ExecStart=${PROJECT_ROOT}/speedtest-backend
 Restart=on-failure
-User=$(whoami)
+User=${SERVICE_USER}
 WorkingDirectory=${PROJECT_ROOT}
 EnvironmentFile=${PROJECT_ROOT}/.env
 
@@ -140,7 +141,7 @@ After=network.target
 Type=simple
 ExecStart=${NODE_BIN} ${PROJECT_ROOT}/node/main.js
 Restart=on-failure
-User=$(whoami)
+User=${SERVICE_USER}
 WorkingDirectory=${PROJECT_ROOT}
 EnvironmentFile=${PROJECT_ROOT}/.env
 
@@ -148,13 +149,10 @@ EnvironmentFile=${PROJECT_ROOT}/.env
 WantedBy=multi-user.target
 EOF
 
-# Reload systemd daemon and enable/start services
+# Reload systemd and enable/start services
 sudo systemctl daemon-reload
 sudo systemctl enable --now speedtest-fe.service
 sudo systemctl enable --now speedtest-be.service
 sudo systemctl enable --now speedtest-node.service
 
 echo "Systemd services installed and started: speedtest-fe, speedtest-be, speedtest-node"
-
-
-
