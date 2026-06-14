@@ -1,152 +1,81 @@
 #!/usr/bin/env bash
 
-# Speedtest Control Script (SAFE VERSION)
-# - Anti double run (LOCK FILE)
-# - Clean stop/start
-# - No ghost process
-# - Fixed ports:
-#   Frontend = 8080
-#   Backend  = 3000
-#   Node     = 8081
+BACKEND_DIR="$(cd "$(dirname "$0")/backend" && pwd)"
+NODE_DIR="$(cd "$(dirname "$0")/node" && pwd)"
+FRONTEND_DIR="$(cd "$(dirname "$0")/frontend" && pwd)"
 
-set -euo pipefail
+BACKEND_BIN="$BACKEND_DIR/speedtest-backend"
+NODE_BIN="$NODE_DIR/speedtest-node"
 
-BASE_DIR="$(pwd)"
-PIDFILE="$BASE_DIR/.speedtest.pids"
-LOCKFILE="/tmp/speedtest.lock"
+BACKEND_PORT=8080
+FRONTEND_PORT=3000
 
-FRONTEND_PORT=8080
-BACKEND_PORT=3000
-NODE_PORT=8081
-
-CMD="${1:-start}"
-
-# ------------------------------------------------------------
-# Load .env
-# ------------------------------------------------------------
-if [ -f .env ]; then
-  export $(grep -v '^#' .env | xargs)
-fi
-
-# ------------------------------------------------------------
-# Safety kill by port
-# ------------------------------------------------------------
-kill_port() {
-  lsof -ti:$1 | xargs -r kill -9 2>/dev/null || true
-}
-
-# ------------------------------------------------------------
-# STOP SERVICES
-# ------------------------------------------------------------
-stop_services() {
-  echo "Stopping Speedtest services..."
-
-  # remove lock
-  rm -f "$LOCKFILE"
-
-  # kill by PID file
-  if [ -f "$PIDFILE" ]; then
-    source "$PIDFILE"
-
-    [ -n "${BACKEND_PID:-}" ] && kill -9 "$BACKEND_PID" 2>/dev/null || true
-    [ -n "${FRONTEND_PID:-}" ] && kill -9 "$FRONTEND_PID" 2>/dev/null || true
-    [ -n "${NODE_PID:-}" ] && kill -9 "$NODE_PID" 2>/dev/null || true
-
-    rm -f "$PIDFILE"
-  fi
-
-  # hard cleanup (anti ghost)
-  pkill -f speedtest-backend || true
-  pkill -f "serve -s" || true
-  pkill -f "node node/main.js" || true
-
-  # kill ports
-  kill_port $BACKEND_PORT
-  kill_port $FRONTEND_PORT
-  kill_port $NODE_PORT
-
-  echo "All services stopped."
-}
-
-# ------------------------------------------------------------
-# START SERVICES
-# ------------------------------------------------------------
 start_services() {
+    echo "[STOP] Killing old services..."
+    pkill -f speedtest-backend 2>/dev/null || true
+    pkill -f speedtest-node 2>/dev/null || true
+    pkill -f "npm run dev" 2>/dev/null || true
 
-  # anti double run lock
-  if [ -f "$LOCKFILE" ]; then
-    echo "ERROR: Speedtest already running!"
-    exit 1
-  fi
+    echo "[BUILD] Backend..."
+    cd "$BACKEND_DIR" || exit 1
+    go build -o speedtest-backend .
+    if [ $? -ne 0 ]; then
+        echo "❌ Backend build FAILED"
+        exit 1
+    fi
 
-  touch "$LOCKFILE"
+    echo "[BUILD] Node..."
+    cd "$NODE_DIR" || exit 1
+    go build -o speedtest-node .
+    if [ $? -ne 0 ]; then
+        echo "⚠️ Node build FAILED → fallback go run"
+        nohup go run main.go > node.log 2>&1 &
+    else
+        nohup ./speedtest-node > node.log 2>&1 &
+    fi
 
-  echo "Starting Speedtest services..."
+    echo "[START] Frontend..."
+    cd "$FRONTEND_DIR" || exit 1
 
-  # Ensure no existing services occupy the ports
-  kill_port $BACKEND_PORT
-  kill_port $FRONTEND_PORT
-  kill_port $NODE_PORT
+    if [ -f package.json ]; then
+        nohup npm install > frontend_install.log 2>&1 &
+        nohup npm run dev > frontend.log 2>&1 &
+        echo "Frontend running on http://localhost:$FRONTEND_PORT"
+    else
+        echo "⚠️ Frontend not found (no package.json)"
+    fi
 
-  # ---------------- BACKEND ----------------
-  echo "Starting backend on port $BACKEND_PORT..."
-  PORT=$BACKEND_PORT ./speedtest-backend &
-  BACKEND_PID=$!
+    echo "[START] Backend..."
+    nohup "$BACKEND_BIN" > backend.log 2>&1 &
 
-  # ---------------- FRONTEND ----------------
-  echo "Starting frontend on port $FRONTEND_PORT..."
-  serve -s frontend/dist -l $FRONTEND_PORT &
-  FRONTEND_PID=$!
+    echo "Waiting..."
+    sleep 3
 
-  # ---------------- NODE ----------------
-  if [ -f node/main.js ]; then
-    echo "Starting node on port $NODE_PORT..."
-    PORT=$NODE_PORT node node/main.js &
-    NODE_PID=$!
-  else
-    NODE_PID=""
-  fi
+    echo "Open browser..."
+    xdg-open "http://localhost:$FRONTEND_PORT" 2>/dev/null || true
 
-  # save PID
-  cat > "$PIDFILE" <<EOF
-BACKEND_PID=$BACKEND_PID
-FRONTEND_PID=$FRONTEND_PID
-NODE_PID=$NODE_PID
-EOF
-
-  echo ""
-  echo "=============================="
-  echo "Speedtest Started"
-  echo "Frontend: http://localhost:$FRONTEND_PORT"
-  echo "Backend : http://localhost:$BACKEND_PORT"
-  echo "Node    : http://localhost:$NODE_PORT"
-  echo "=============================="
-
-  trap "stop_services; exit" SIGINT SIGTERM
-
-  wait $BACKEND_PID
-  wait $FRONTEND_PID
-  if [ -n "$NODE_PID" ]; then
-    wait $NODE_PID
-  fi
+    echo "✅ DONE"
 }
 
-# ------------------------------------------------------------
-# COMMAND ROUTER
-# ------------------------------------------------------------
-case "$CMD" in
-  start)
-    start_services
-    ;;
-  stop)
+stop_services() {
+    echo "[STOP] services..."
+    pkill -f speedtest-backend 2>/dev/null || true
+    pkill -f speedtest-node 2>/dev/null || true
+    pkill -f "npm run dev" 2>/dev/null || true
+    echo "Stopped"
+}
+
+restart_services() {
     stop_services
-    ;;
-  restart)
-    stop_services
+    sleep 2
     start_services
-    ;;
-  *)
-    echo "Usage: $0 {start|stop|restart}"
-    exit 1
-    ;;
+}
+
+case "$1" in
+    start) start_services ;;
+    stop) stop_services ;;
+    restart) restart_services ;;
+    *)
+        echo "Usage: $0 {start|stop|restart}"
+        ;;
 esac
