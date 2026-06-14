@@ -5,7 +5,7 @@ import TestResults from './components/TestResults';
 import AdminDashboard from './components/AdminDashboard';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 
-const BACKEND_URL = 'http://99.99.99.191:8080';
+const BACKEND_URL = 'http://localhost:8080';
 
 function App() {
   const [activePage, setActivePage] = useState('home'); // 'home' | 'admin'

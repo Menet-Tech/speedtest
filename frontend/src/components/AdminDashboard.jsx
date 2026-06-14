@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Settings, Server, Plus, Trash2, Save, Sparkles, TrendingUp, ArrowDownCircle, ArrowUpCircle, Activity, Lock, Image, Shield, RotateCcw, MapPin, Wifi } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 
-const BACKEND_URL = 'http://99.99.99.191:8080';
+const BACKEND_URL = 'http://localhost:8080';
 
 const AdminDashboard = ({
   config,
@@ -485,7 +485,7 @@ const AdminDashboard = ({
                   className="admin-input"
                   value={nodeAddress}
                   onChange={(e) => setNodeAddress(e.target.value)}
-                  placeholder="http://99.99.99.191:8081"
+                  placeholder="http://localhost:8081"
                   required
                 />
               </div>
