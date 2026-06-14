@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Settings, Server, Plus, Trash2, Save, Sparkles, TrendingUp, ArrowDownCircle, ArrowUpCircle, Activity, Lock, Image, Shield, RotateCcw, MapPin, Wifi } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 
-const BACKEND_URL = 'http://localhost:8080';
+const BACKEND_URL = 'http://99.99.99.191:8080';
 
 const AdminDashboard = ({
   config,
@@ -485,7 +485,7 @@ const AdminDashboard = ({
                   className="admin-input"
                   value={nodeAddress}
                   onChange={(e) => setNodeAddress(e.target.value)}
-                  placeholder="http://localhost:8081"
+                  placeholder="http://99.99.99.189:8081"
                   required
                 />
               </div>
@@ -819,9 +819,9 @@ const AdminDashboard = ({
                 <Shield size={18} color="var(--color-danger)" />
                 Rate-Limited & Blocked Client IPs
               </h3>
-              <button 
-                onClick={fetchBlockedIPs} 
-                className="admin-btn" 
+              <button
+                onClick={fetchBlockedIPs}
+                className="admin-btn"
                 style={{ padding: '0.4rem 1rem', fontSize: '0.8rem' }}
               >
                 Refresh List
@@ -850,7 +850,7 @@ const AdminDashboard = ({
                         <td>{new Date(block.last_attempt).toLocaleString()}</td>
                         <td>{new Date(block.block_expires).toLocaleString()}</td>
                         <td>
-                          <span 
+                          <span
                             style={{
                               fontSize: '0.75rem',
                               padding: '0.1rem 0.5rem',
@@ -864,14 +864,14 @@ const AdminDashboard = ({
                           </span>
                         </td>
                         <td style={{ textAlign: 'right' }}>
-                          <button 
-                            className="admin-btn" 
-                            style={{ 
-                              padding: '0.35rem 0.75rem', 
-                              fontSize: '0.75rem', 
-                              background: 'rgba(16, 185, 129, 0.1)', 
-                              color: 'var(--color-download)', 
-                              border: '1px solid rgba(16, 185, 129, 0.2)' 
+                          <button
+                            className="admin-btn"
+                            style={{
+                              padding: '0.35rem 0.75rem',
+                              fontSize: '0.75rem',
+                              background: 'rgba(16, 185, 129, 0.1)',
+                              color: 'var(--color-download)',
+                              border: '1px solid rgba(16, 185, 129, 0.2)'
                             }}
                             onClick={() => handleUnblockIP(block.ip)}
                           >
