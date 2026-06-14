@@ -73,21 +73,72 @@ GOOS=linux GOARCH=amd64 go build -o ../speedtest-backend
 cd ..
 
 # ----- Run application ---------------------------------------------------
-# Start backend in background, reading credentials from .env
-export $(grep -v '^#' .env | xargs)
-./speedtest-backend &
-BACKEND_PID=$!
+# The script now creates systemd services instead of running processes directly.
 
-echo "Backend started (PID $BACKEND_PID)"
+# ------------------------------------------------------------
+# Create systemd service units for Speedtest components
+# ------------------------------------------------------------
 
-# Serve the frontend static files
-serve -s frontend/dist -l 8080 &
-FRONTEND_PID=$!
+# Frontend service (serve static files)
+cat <<'EOF' | sudo tee /etc/systemd/system/speedtest-fe.service
+[Unit]
+Description=Speedtest Frontend Service
+After=network.target
 
-echo "Frontend served at http://localhost:8080 (PID $FRONTEND_PID)"
+[Service]
+Type=simple
+ExecStart=$(which serve) -s $(pwd)/frontend/dist -l 8080
+Restart=on-failure
+User=$(whoami)
+WorkingDirectory=$(pwd)
+EnvironmentFile=$(pwd)/.env
 
-# Wait for either process to exit (Ctrl+C will terminate both)
-trap "kill $BACKEND_PID $FRONTEND_PID 2>/dev/null; exit" SIGINT SIGTERM
-wait $BACKEND_PID
-wait $FRONTEND_PID
+[Install]
+WantedBy=multi-user.target
+EOF
+
+# Backend service (Go binary)
+cat <<'EOF' | sudo tee /etc/systemd/system/speedtest-be.service
+[Unit]
+Description=Speedtest Backend Service
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=$(pwd)/speedtest-backend
+Restart=on-failure
+User=$(whoami)
+WorkingDirectory=$(pwd)
+EnvironmentFile=$(pwd)/.env
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+# Node service (if applicable)
+cat <<'EOF' | sudo tee /etc/systemd/system/speedtest-node.service
+[Unit]
+Description=Speedtest Node Service
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=$(which node) $(pwd)/node/main.js
+Restart=on-failure
+User=$(whoami)
+WorkingDirectory=$(pwd)
+EnvironmentFile=$(pwd)/.env
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+# Reload systemd daemon and enable/start services
+sudo systemctl daemon-reload
+sudo systemctl enable --now speedtest-fe.service
+sudo systemctl enable --now speedtest-be.service
+sudo systemctl enable --now speedtest-node.service
+
+echo "Systemd services installed and started: speedtest-fe, speedtest-be, speedtest-node"
+
 
